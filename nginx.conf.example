@@ -1,0 +1,122 @@
+# Nginx 配置示例
+
+## 1. HTTP 基础配置
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    
+    root /path/to/water-station-tool/dist;
+    index index.html;
+    
+    # Vue Router history 模式支持
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    
+    # 静态资源缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+## 2. HTTPS 配置（推荐）
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+    
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    
+    root /path/to/water-station-tool/dist;
+    index index.html;
+    
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+
+# HTTP 重定向到 HTTPS
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+## 3. 访问控制（可选）
+
+```nginx
+# IP 白名单
+location / {
+    allow 192.168.1.0/24;
+    allow 10.0.0.0/8;
+    deny all;
+    
+    try_files $uri $uri/ /index.html;
+}
+
+# 或 Basic Auth
+location / {
+    auth_basic "废水站运营工具";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+    
+    try_files $uri $uri/ /index.html;
+}
+```
+
+## 4. 反向代理（如后端 API）
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+    
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+    
+    # 前端静态文件
+    location / {
+        root /path/to/water-station-tool/dist;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+    
+    # 后端 API 代理
+    location /api/ {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## 部署步骤
+
+1. 构建项目：`npm run build`
+2. 将 `dist/` 目录上传到服务器
+3. 配置 Nginx（参考上述配置）
+4. 重启 Nginx：`sudo systemctl restart nginx`
+5. 配置 SSL 证书（推荐 Let's Encrypt）
+6. 配置防火墙规则
+
+## 注意事项
+
+- 数据默认保存在浏览器 localStorage，不同设备数据不互通
+- 如需数据持久化，需配合后端 API
+- 建议定期导出 Excel 备份数据
+- 外网访问建议配置 VPN 或 IP 白名单
